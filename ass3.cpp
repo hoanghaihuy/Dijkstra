@@ -46,10 +46,11 @@ void Vertex::display() {
 Vertex vertexArray[VERTICES_ARRAY_SIZE];
 
 int nodeVisited = 0;
+int length = 0;
 
-void printPath(int parent[], int j);
+void printPath(int parent[], int j, int nodesVisit[]);
 int minDistance(int dist[], bool sptSet[], int numberOfVertices);
-void dijkstra(int numberOfVertices, int src, int des);
+void dijkstra(Vertex array[], int numberOfVertices, int src, int des, int parent[]);
 
 int main() {
     const string FILE_NAME = "ass3.txt";
@@ -89,14 +90,61 @@ int main() {
     // }
     char start, end;
     inFile >> start >> end;
-    dijkstra(numberOfVertices, int(start - CONVERT_ASCII), int(end - CONVERT_ASCII));
-    cout << "Number of nodes visited: " << nodeVisited << endl;
+    cout << "Start and end vertex: " << start << " " << end << endl;
+
+    // parent array to store shortest path
+    int parent[numberOfVertices];
+    // nodesVisit contains the reverse shortest path in int
+    int nodesVisit[numberOfVertices];
+
+    // find the shortest path
+    dijkstra(vertexArray, numberOfVertices, int(start - CONVERT_ASCII), int(end - CONVERT_ASCII), parent);
+    cout << "\nShortest path using Dijkstra alg:\nPath: " << start << " ";
+    printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
+    cout << "\nPath distance: " << length << endl;
+    cout << "Number of vertices visited: " << nodeVisited << endl;
+    nodesVisit[nodeVisited - 1] = int(start - CONVERT_ASCII);
+
+    // find the second shortest path
+    int secondShortest = INT_MAX;
+    int secondShortestParent[numberOfVertices];
+    for (int i = nodeVisited - 1; i > 0; i--) {
+        int weightTemp = 0;
+        int removeIndex = -1;
+        int index = nodesVisit[i];
+        for (int j = 0; j < vertexArray[index].numberOfEdge; j++) {
+            if (vertexArray[index].edgeArray[j].destination == nodesVisit[i - 1]) {
+                weightTemp = vertexArray[index].edgeArray[j].weight;
+                vertexArray[index].edgeArray[j].weight = 0; // weight = 0 ~ no edge between those vertices
+                removeIndex = j;
+                break;
+            }
+        }
+
+        dijkstra(vertexArray, numberOfVertices, int(start - CONVERT_ASCII), int(end - CONVERT_ASCII), parent);
+        if (length < secondShortest) {
+            secondShortest = length;
+            for (int j = 0; j < numberOfVertices; j++) {
+                secondShortestParent[j] = parent[j];
+            }
+        }
+
+        if (weightTemp > 0 && removeIndex != -1) {
+            // reset the weight between vertices
+            vertexArray[index].edgeArray[removeIndex].weight = weightTemp;
+        }
+    }
+    nodeVisited = 0;
+    cout << "\nSecond shortest path using Dijkstra alg:\nPath: " << start << " ";
+    printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
+    cout << "\nPath distance: " << secondShortest << endl;
+    cout << "Number of vertices visited: " << nodeVisited << endl;
 
     inFile.close();
     return 0;
 }
 
-void dijkstra(int numberOfVertices, int src, int des) {
+void dijkstra(Vertex array[], int numberOfVertices, int src, int des, int parent[]) {
     // dist[i] hold the shortest distance from src to i
     // i is corresponding to the index of vertexArray since each character has been converted to int
     // and used the number as index in vertexArray (a-t ~ 0-19)
@@ -104,8 +152,7 @@ void dijkstra(int numberOfVertices, int src, int des) {
     // sptSet[i] will be true if vertex i is includedin shortest path tree
     // or shortest distance from src to i is finalized
     bool sptSet[numberOfVertices];
-    // parent array to store shortest path
-    int parent[numberOfVertices];
+
 
     for (int i = 0; i < numberOfVertices; i++) {
         dist[i] = INT_MAX;
@@ -120,20 +167,17 @@ void dijkstra(int numberOfVertices, int src, int des) {
         int u = minDistance(dist, sptSet, numberOfVertices);
         sptSet[u] = true;
 
-        for (int j = 0; j < vertexArray[u].numberOfEdge; j++) {
-            int destination = vertexArray[u].edgeArray[j].destination;
-            if (!sptSet[destination] && dist[u] != INT_MAX
-                && dist[u] + vertexArray[u].edgeArray[j].weight < dist[destination]) {
-                    dist[destination] = dist[u] + vertexArray[u].edgeArray[j].weight;
+        for (int j = 0; j < array[u].numberOfEdge; j++) {
+            int destination = array[u].edgeArray[j].destination;
+            if (!sptSet[destination] && array[u].edgeArray[j].weight && dist[u] != INT_MAX
+                && dist[u] + array[u].edgeArray[j].weight < dist[destination]) {
+                    dist[destination] = dist[u] + array[u].edgeArray[j].weight;
                     parent[destination] = u;
             }
         }
-
     }
 
-    cout << char(src + CONVERT_ASCII) << " ";
-    printPath(parent, des);
-    cout << "\nLength of shortest path: " << dist[des] << endl;
+    length = dist[des];
 }
 
 int minDistance(int dist[], bool sptSet[], int numberOfVertices) {
@@ -147,13 +191,15 @@ int minDistance(int dist[], bool sptSet[], int numberOfVertices) {
     return min_index;
 }
 
-void printPath(int parent[], int j) {
+void printPath(int parent[], int j, int nodesVisit[]) {
+    if (parent[j] != -1) nodesVisit[nodeVisited] = j;
     nodeVisited++;
+
     // Base Case : If j is source
     if (parent[j] == -1)
         return;
 
-    printPath(parent, parent[j]);
+    printPath(parent, parent[j], nodesVisit);
 
     cout << char(j + CONVERT_ASCII) << " ";
 }
