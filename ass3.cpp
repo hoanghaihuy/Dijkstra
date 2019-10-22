@@ -9,12 +9,13 @@ const int CONVERT_ASCII = 97;
 struct Edge {
     int weight;
     int destination;
-    Edge() {};
-    Edge(int, char);
+    bool isProcessed;
+    Edge() : weight(INT_MAX), destination(0), isProcessed(false) {};
+    Edge(int, int);
     void display();
 };
 
-Edge::Edge(int _weight, char _destination) : weight(_weight), destination(_destination) {};
+Edge::Edge(int _weight, int _destination) : weight(_weight), destination(_destination), isProcessed(false) {};
 void Edge::display() { cout << char(destination + CONVERT_ASCII) << '(' << weight << ')'; };
 
 struct Vertex {
@@ -46,6 +47,12 @@ void Vertex::display() {
 Vertex vertexArray[VERTICES_ARRAY_SIZE];
 
 int nodeVisited = 0;
+
+void swap(Edge *a, Edge *b);
+void siftup(Edge heap[], int i);
+void siftdown(Edge heap[], int i, int max);
+int getMinDist(Edge heap[], int i);
+void makeheap(Edge heap[], int max);
 
 void printPath(int parent[], int j);
 int minDistance(int dist[], bool sptSet[], int numberOfVertices);
@@ -100,32 +107,37 @@ void dijkstra(int numberOfVertices, int src, int des) {
     // dist[i] hold the shortest distance from src to i
     // i is corresponding to the index of vertexArray since each character has been converted to int
     // and used the number as index in vertexArray (a-t ~ 0-19)
-    int dist[numberOfVertices];
+    Edge *dist = new Edge[numberOfVertices];
     // sptSet[i] will be true if vertex i is includedin shortest path tree
     // or shortest distance from src to i is finalized
     bool sptSet[numberOfVertices];
     // parent array to store shortest path
     int parent[numberOfVertices];
+    // cout << numberOfVertices << endl;
 
     for (int i = 0; i < numberOfVertices; i++) {
-        dist[i] = INT_MAX;
+        dist[i] = Edge(INT_MAX, i);
         sptSet[i] = false;
         parent[i] = -1;
     }
 
-    dist[src] = 0;
+    dist[src] = Edge(0, src);
 
     for (int i = 0; i < numberOfVertices - 1; i++) {
         // get the minimum distance vertex's index from the set of vertices not yet processed
-        int u = minDistance(dist, sptSet, numberOfVertices);
-        sptSet[u] = true;
+        // int u = minDistance(dist, sptSet, numberOfVertices);
+        int u = getMinDist(dist, i);
+        // sptSet[u] = true;
+        dist[u].isProcessed = true;
 
         for (int j = 0; j < vertexArray[u].numberOfEdge; j++) {
             int destination = vertexArray[u].edgeArray[j].destination;
-            if (!sptSet[destination] && dist[u] != INT_MAX
-                && dist[u] + vertexArray[u].edgeArray[j].weight < dist[destination]) {
-                    dist[destination] = dist[u] + vertexArray[u].edgeArray[j].weight;
+            if (!dist[destination].isProcessed && dist[u].weight != INT_MAX
+                && dist[u].weight + vertexArray[u].edgeArray[j].weight < dist[destination].weight) {
+                    // cout << char(u + CONVERT_ASCII) << " ";
+                    dist[destination].weight = dist[u].weight + vertexArray[u].edgeArray[j].weight;
                     parent[destination] = u;
+                    makeheap(dist, numberOfVertices - 1);
             }
         }
 
@@ -133,7 +145,55 @@ void dijkstra(int numberOfVertices, int src, int des) {
 
     cout << char(src + CONVERT_ASCII) << " ";
     printPath(parent, des);
-    cout << "\nLength of shortest path: " << dist[des] << endl;
+    cout << "\nLength of shortest path: " << dist[des].weight << endl;
+}
+
+void makeheap(Edge heap[], int max) {
+    for (int i = max / 2; i >= 1; i--) {
+        siftdown(heap, i, max);
+    }
+    // for (int i = 1; i <= max; i++) {
+    //     heap[i].display();
+    // }
+}
+
+int getMinDist(Edge heap[], int i) {
+    int des;
+    if (i == 0) {
+        des = heap[0].destination;
+        // heap[0].weight = INT_MAX;
+    } else {
+        des = heap[1].destination;
+        heap[1].weight = INT_MAX;
+        siftdown(heap, 1, 20);
+    }
+    return des;
+}
+
+void swap(Edge *a, Edge *b) {
+    Edge temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void siftup(Edge heap[], int i) {
+    if (i == 1) return;
+    int position = i / 2;
+
+    if (heap[position].weight > heap[i].weight) {
+        swap(&heap[position], &heap[i]);
+        siftup(heap, position);
+    }
+}
+
+void siftdown(Edge heap[], int i, int max) {
+    int position = i * 2;
+    if (position < max && heap[position].weight > heap[position + 1].weight) position++;
+
+    if (position <= max && heap[i].weight > heap[position].weight) {
+        swap(&heap[position], &heap[i]);
+        siftdown(heap, position, max);
+    }
 }
 
 int minDistance(int dist[], bool sptSet[], int numberOfVertices) {
