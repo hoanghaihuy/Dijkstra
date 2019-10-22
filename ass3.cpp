@@ -112,13 +112,24 @@ int main() {
         int weightTemp = 0;
         int removeIndex = -1;
         int index = nodesVisit[i];
-        for (int j = 0; j < vertexArray[index].numberOfEdge; j++) {
-            if (vertexArray[index].edgeArray[j].destination == nodesVisit[i - 1]) {
-                weightTemp = vertexArray[index].edgeArray[j].weight;
-                vertexArray[index].edgeArray[j].weight = 0; // weight = 0 ~ no edge between those vertices
-                removeIndex = j;
+
+        // binary search
+        int startBS = 0;
+        int endBS = vertexArray[index].numberOfEdge;
+        for (int j = startBS; j < endBS; j++) {
+            int mid = startBS + (endBS - startBS) / 2;
+            if (vertexArray[index].edgeArray[mid].destination == nodesVisit[i - 1]) {
+                weightTemp = vertexArray[index].edgeArray[mid].weight;
+                vertexArray[index].edgeArray[mid].weight = 0; // weight = 0 ~ no edge between those vertices
+                removeIndex = mid;
                 break;
+            } else if (nodesVisit[i - 1] > vertexArray[index].edgeArray[mid].destination) {
+                startBS = mid + 1;
+            } else {
+                endBS = mid - 1;
             }
+
+            if (startBS > endBS) break;
         }
 
         dijkstra(vertexArray, numberOfVertices, int(start - CONVERT_ASCII), int(end - CONVERT_ASCII), parent);
@@ -169,8 +180,8 @@ void dijkstra(Vertex array[], int numberOfVertices, int src, int des, int parent
 
         for (int j = 0; j < array[u].numberOfEdge; j++) {
             int destination = array[u].edgeArray[j].destination;
-            if (!sptSet[destination] && array[u].edgeArray[j].weight && dist[u] != INT_MAX
-                && dist[u] + array[u].edgeArray[j].weight < dist[destination]) {
+            if (!sptSet[destination] && array[u].edgeArray[j].weight && dist[u] != INT_MAX &&
+                dist[u] + array[u].edgeArray[j].weight < dist[destination]) {
                     dist[destination] = dist[u] + array[u].edgeArray[j].weight;
                     parent[destination] = u;
             }
