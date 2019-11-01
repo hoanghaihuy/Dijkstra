@@ -5,14 +5,14 @@ using namespace std;
 
 const int EDGE_ARRAY_SIZE = 100;
 const int VERTICES_ARRAY_SIZE = 100;
-const int CONVERT_ASCII = 97;
+const int CONVERT_ASCII = 96;
 
 struct Edge {
     int weight;
     int destination;
     int desX;
     int desY;
-    Edge() {};
+    Edge() : weight(INT_MAX), destination(0), desX(0), desY(0) {};
     Edge(int, int, int, int);
     void display();
 };
@@ -48,11 +48,17 @@ void Vertex::display() {
 
 Vertex vertexArray[VERTICES_ARRAY_SIZE];
 
+int nodeVisitedOnPath = 0;
 int nodeVisited = 0;
 int length = 0;
 
+void swap(Edge* a, Edge* b);
+void siftup(Edge heap[], int i);
+void siftdown(Edge heap[], int i, int ctr);
+Edge getMinDist(Edge heap[], int &ctr);
+void makeheap(Edge heap[], int ctr);
+
 void printPath(int parent[], int j, int nodesVisit[]);
-int minDistance(int dist[], bool sptSet[], int numberOfVertices);
 void dijkstra(Vertex array[], int numberOfVertices, int src, int des, int parent[]);
 void AStar(Vertex array[], int numberOfVertices, int src, int des, int parent[]);
 
@@ -108,12 +114,13 @@ int main() {
     printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
     cout << "\nPath distance: " << length << endl;
     cout << "Number of vertices visited: " << nodeVisited << endl;
-    nodesVisit[nodeVisited - 1] = int(start - CONVERT_ASCII);
+    nodesVisit[nodeVisitedOnPath] = int(start - CONVERT_ASCII);
 
     // find the second shortest path
+    nodeVisited = 0;
     int secondShortest = INT_MAX;
     int secondShortestParent[numberOfVertices];
-    for (int i = nodeVisited - 1; i > 0; i--) {
+    for (int i = nodeVisitedOnPath; i > 1; i--) {
         int weightTemp = 0;
         int removeIndex = -1;
         int index = nodesVisit[i];
@@ -150,7 +157,7 @@ int main() {
             vertexArray[index].edgeArray[removeIndex].weight = weightTemp;
         }
     }
-    nodeVisited = 0;
+    nodeVisitedOnPath = 0;
     cout << "\nSecond shortest path using Dijkstra alg:\nPath: " << start << " ";
     printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
     cout << "\nPath distance: " << secondShortest << endl;
@@ -158,16 +165,18 @@ int main() {
 
     // A* algorithm
     nodeVisited = 0;
+    nodeVisitedOnPath = 0;
     AStar(vertexArray, numberOfVertices, int(start - CONVERT_ASCII), int(end - CONVERT_ASCII), parent);
     cout << "\nShortest path using A* alg:\nPath: " << start << " ";
     printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
     cout << "\nPath distance: " << length << endl;
     cout << "Number of vertices visited: " << nodeVisited << endl;
-    nodesVisit[nodeVisited - 1] = int(start - CONVERT_ASCII);
+    nodesVisit[nodeVisitedOnPath] = int(start - CONVERT_ASCII);
 
     // find second shortest path
     secondShortest = INT_MAX;
-    for (int i = nodeVisited - 1; i > 0; i--) {
+    nodeVisited = 0;
+    for (int i = nodeVisitedOnPath; i > 1; i--) {
         int weightTemp = 0;
         int removeIndex = -1;
         int index = nodesVisit[i];
@@ -204,7 +213,7 @@ int main() {
             vertexArray[index].edgeArray[removeIndex].weight = weightTemp;
         }
     }
-    nodeVisited = 0;
+    nodeVisitedOnPath = 0;
     cout << "\nSecond shortest path using A* alg:\nPath: " << start << " ";
     printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
     cout << "\nPath distance: " << secondShortest << endl;
@@ -214,35 +223,90 @@ int main() {
     return 0;
 }
 
+void swap(Edge* a, Edge* b) {
+    Edge temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void siftup(Edge heap[], int i) {
+    if (i == 1) return;
+    int position = i / 2;
+
+    if (heap[position].weight > heap[i].weight) {
+        swap(&heap[i], & heap[position]);
+        siftup(heap, position);
+    }
+}
+
+void siftdown(Edge heap[], int i, int ctr) {
+    int position = i * 2;
+    if (position < ctr && heap[position].weight > heap[position + 1].weight) position++;
+
+    if (position <= ctr && heap[i].weight > heap[position].weight) {
+        swap(&heap[i], &heap[position]);
+        siftdown(heap, position, ctr);
+    }
+}
+
+Edge getMinDist(Edge heap[], int &ctr) {
+    Edge edge = heap[1];
+    swap(&heap[1], &heap[ctr]);
+    ctr--;
+    siftdown(heap, 1, ctr);
+    return edge;
+}
+
+void makeheap(Edge heap[], int ctr) {
+    for (int i = round(ctr / 2); i >= 1; i--) {
+        siftdown(heap, i, ctr);
+    }
+}
+
 void dijkstra(Vertex array[], int numberOfVertices, int src, int des, int parent[]) {
     // dist[i] hold the shortest distance from src to i
     // i is corresponding to the index of vertexArray since each character has been converted to int
     // and used the number as index in vertexArray (a-t ~ 0-19)
+    // edges is a min heap which contains the distance
+    Edge edges[numberOfVertices];
     int dist[numberOfVertices];
     // sptSet[i] will be true if vertex i is includedin shortest path tree
     // or shortest distance from src to i is finalized
     bool sptSet[numberOfVertices];
 
-
-    for (int i = 0; i < numberOfVertices; i++) {
+    for (int i = 1; i <= numberOfVertices; i++) {
         dist[i] = INT_MAX;
         sptSet[i] = false;
         parent[i] = -1;
     }
 
+    int ctr = 0;
+    ctr++;
+    edges[ctr].weight = 0;
+    edges[ctr].destination = src;
     dist[src] = 0;
 
-    for (int i = 0; i < numberOfVertices - 1; i++) {
-        // get the minimum distance vertex's index from the set of vertices not yet processed
-        int u = minDistance(dist, sptSet, numberOfVertices);
-        sptSet[u] = true;
+    bool isDes = false;
+    while (ctr > 0) {
+        Edge u = getMinDist(edges, ctr);
+        if (u.destination == des && !isDes) {
+            isDes = true;
+            nodeVisited++;
+        } else if (!isDes) {
+            nodeVisited++;
+        }
+        sptSet[u.destination] = true;
 
-        for (int j = 0; j < array[u].numberOfEdge; j++) {
-            int destination = array[u].edgeArray[j].destination;
-            if (!sptSet[destination] && array[u].edgeArray[j].weight && dist[u] != INT_MAX &&
-                dist[u] + array[u].edgeArray[j].weight < dist[destination]) {
-                    dist[destination] = dist[u] + array[u].edgeArray[j].weight;
-                    parent[destination] = u;
+        for (int i = 0; i < array[u.destination].numberOfEdge; i++) {
+            int destination = array[u.destination].edgeArray[i].destination;
+            if (!sptSet[destination] && array[u.destination].edgeArray[i].weight && dist[u.destination] != INT_MAX
+                && dist[u.destination] + array[u.destination].edgeArray[i].weight < dist[destination]) {
+                    dist[destination] = dist[u.destination] + array[u.destination].edgeArray[i].weight;
+                    parent[destination] = u.destination;
+                    ctr++;
+                    edges[ctr].destination = destination;
+                    edges[ctr].weight = dist[destination];
+                    siftup(edges, ctr);
             }
         }
     }
@@ -254,39 +318,54 @@ void AStar(Vertex array[], int numberOfVertices, int src, int des, int parent[])
     // dist[i] hold the shortest distance from src to i
     // i is corresponding to the index of vertexArray since each character has been converted to int
     // and used the number as index in vertexArray (a-t ~ 0-19)
+    // edges is a min heap which contains the distance
+    Edge edges[numberOfVertices];
     int dist[numberOfVertices];
     // sptSet[i] will be true if vertex i is includedin shortest path tree
     // or shortest distance from src to i is finalized
     bool sptSet[numberOfVertices];
 
-
-    for (int i = 0; i < numberOfVertices; i++) {
+    for (int i = 1; i <= numberOfVertices; i++) {
         dist[i] = INT_MAX;
         sptSet[i] = false;
         parent[i] = -1;
     }
 
+    int ctr = 0;
+    ctr++;
+    edges[ctr].weight = 0;
+    edges[ctr].destination = src;
     dist[src] = 0;
 
-    for (int i = 0; i < numberOfVertices - 1; i++) {
-        // get the minimum distance vertex's index from the set of vertices not yet processed
-        int u = minDistance(dist, sptSet, numberOfVertices);
-        sptSet[u] = true;
+    bool isDes = false;
+    while (ctr > 0) {
+        Edge u = getMinDist(edges, ctr);
+        if (u.destination == des && !isDes) {
+            isDes = true;
+            nodeVisited++;
+        } else if (!isDes) {
+            nodeVisited++;
+        }
+        sptSet[u.destination] = true;
 
-        for (int j = 0; j < array[u].numberOfEdge; j++) {
-            int destination = array[u].edgeArray[j].destination;
+        for (int i = 0; i < array[u.destination].numberOfEdge; i++) {
+            int destination = array[u.destination].edgeArray[i].destination;
             double power = 2;
-            double startX = array[u].x;
-            double startY = array[u].y;
-            double desX = array[u].edgeArray[j].desX;
-            double desY = array[u].edgeArray[j].desY;
+            double startX = array[u.destination].x;
+            double startY = array[u.destination].y;
+            double desX = array[u.destination].edgeArray[i].desX;
+            double desY = array[u.destination].edgeArray[i].desY;
 
             double euclideanDist = sqrt(pow(startX - desX, power) + pow(startY - desY, power));
 
-            if (!sptSet[destination] && array[u].edgeArray[j].weight && dist[u] != INT_MAX &&
-                dist[u] + array[u].edgeArray[j].weight + euclideanDist < dist[destination]) {
-                    dist[destination] = dist[u] + array[u].edgeArray[j].weight + euclideanDist;
-                    parent[destination] = u;
+            if (!sptSet[destination] && array[u.destination].edgeArray[i].weight && dist[u.destination] != INT_MAX
+                && dist[u.destination] + array[u.destination].edgeArray[i].weight + euclideanDist < dist[destination]) {
+                    dist[destination] = dist[u.destination] + array[u.destination].edgeArray[i].weight + euclideanDist;
+                    parent[destination] = u.destination;
+                    ctr++;
+                    edges[ctr].destination = destination;
+                    edges[ctr].weight = dist[destination];
+                    siftup(edges, ctr);
             }
         }
     }
@@ -294,20 +373,9 @@ void AStar(Vertex array[], int numberOfVertices, int src, int des, int parent[])
     length = dist[des];
 }
 
-int minDistance(int dist[], bool sptSet[], int numberOfVertices) {
-    // Initialize min value
-    int min = INT_MAX, min_index;
-
-    for (int i = 0; i < numberOfVertices; i++)
-        if (sptSet[i] == false && dist[i] <= min)
-            min = dist[i], min_index = i;
-
-    return min_index;
-}
-
 void printPath(int parent[], int j, int nodesVisit[]) {
-    if (parent[j] != -1) nodesVisit[nodeVisited] = j;
-    nodeVisited++;
+    nodeVisitedOnPath++;
+    if (parent[j] != -1) nodesVisit[nodeVisitedOnPath] = j;
 
     // Base Case : If j is source
     if (parent[j] == -1)
@@ -317,3 +385,20 @@ void printPath(int parent[], int j, int nodesVisit[]) {
 
     cout << char(j + CONVERT_ASCII) << " ";
 }
+
+// - To find the shortest path using Dijkstra alg, I have used the min heap to contain the distances to neighbour nodes of
+// the current node then the first element in the heap is the shortest path. Beside, I also have an int array which contain
+// the shortest path to go to a node from the src. This method is used for A* alg but in the calculation of weight, it also
+// adds the Euclidean distance
+// - There is an array which contains the nodes visited. Get each pair of node (src and destination - get all neighbour nodes
+// of the src and using binary search to find the destination), set the weight between these nodes to 0 (no weight or no path
+// between these nodes), then using the alg to find the shortest path, save this result as temporary, loop through all pair of
+// nodes in the array of nodes visited and compare the shortest path. The final result is the second shortest path.
+// - The proposed solution to find the second shortest path is always correct; if the graph contains cycles, it will not effect
+// the result of the second shortest path, because what we delete as proposed solution is the shortest path from the src to the
+// destination, so it means that if between src and des contains cycles, there are a path from src to des and a path from des to
+// src, but the path from des to src will not in used since the path must be from src to des; The same explanation could be used
+// for the graph that contains undirected path, the path that go from des to src will not be certain; The second shortest path is
+// always longer than or equal the shortest path since one of the path in the shortest path has been deleted, then the alg will
+// find the shortest weight to make a move. So if it is required that the second shortest path must be longer than the shortest path
+// we will have to modify the alg to eliminate the result and redo if the second shortest path is equal to the shortest path.
