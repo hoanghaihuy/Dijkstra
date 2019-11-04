@@ -157,11 +157,14 @@ int main() {
             vertexArray[index].edgeArray[removeIndex].weight = weightTemp;
         }
     }
+    // reduce the duplicate destination counts (the number of duplicate counts would be number of nodes on the shortest path - 1,
+    // the number of vertices visited includes the destination so get 1 from the number of duplicate counts)
+    int duplicateDes = nodeVisitedOnPath - 2;
     nodeVisitedOnPath = 0;
     cout << "\nSecond shortest path using Dijkstra alg:\nPath: " << start << " ";
     printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
     cout << "\nPath distance: " << secondShortest << endl;
-    cout << "Number of vertices visited: " << nodeVisited << endl;
+    cout << "Number of vertices visited: " << nodeVisited - duplicateDes << endl;
 
     // A* algorithm
     nodeVisited = 0;
@@ -213,11 +216,12 @@ int main() {
             vertexArray[index].edgeArray[removeIndex].weight = weightTemp;
         }
     }
+    duplicateDes = nodeVisitedOnPath - 2;
     nodeVisitedOnPath = 0;
     cout << "\nSecond shortest path using A* alg:\nPath: " << start << " ";
     printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
     cout << "\nPath distance: " << secondShortest << endl;
-    cout << "Number of vertices visited: " << nodeVisited << endl;
+    cout << "Number of vertices visited: " << nodeVisited - duplicateDes << endl;
 
     inFile.close();
     return 0;
