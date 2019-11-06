@@ -157,14 +157,11 @@ int main() {
             vertexArray[index].edgeArray[removeIndex].weight = weightTemp;
         }
     }
-    // reduce the duplicate destination counts (the number of duplicate counts would be number of nodes on the shortest path - 1,
-    // the number of vertices visited includes the destination so get 1 from the number of duplicate counts)
-    int duplicateDes = nodeVisitedOnPath - 2;
     nodeVisitedOnPath = 0;
     cout << "\nSecond shortest path using Dijkstra alg:\nPath: " << start << " ";
     printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
     cout << "\nPath distance: " << secondShortest << endl;
-    cout << "Number of vertices visited: " << nodeVisited - duplicateDes << endl;
+    cout << "Number of vertices visited: " << nodeVisited << endl;
 
     // A* algorithm
     nodeVisited = 0;
@@ -216,12 +213,11 @@ int main() {
             vertexArray[index].edgeArray[removeIndex].weight = weightTemp;
         }
     }
-    duplicateDes = nodeVisitedOnPath - 2;
     nodeVisitedOnPath = 0;
     cout << "\nSecond shortest path using A* alg:\nPath: " << start << " ";
     printPath(parent, int(end - CONVERT_ASCII), nodesVisit);
     cout << "\nPath distance: " << secondShortest << endl;
-    cout << "Number of vertices visited: " << nodeVisited - duplicateDes << endl;
+    cout << "Number of vertices visited: " << nodeVisited << endl;
 
     inFile.close();
     return 0;
@@ -296,7 +292,7 @@ void dijkstra(Vertex array[], int numberOfVertices, int src, int des, int parent
         if (u.destination == des && !isDes) {
             isDes = true;
             nodeVisited++;
-        } else if (!isDes) {
+        } else if (!isDes && !sptSet[u.destination]) {
             nodeVisited++;
         }
         sptSet[u.destination] = true;
@@ -323,7 +319,7 @@ void AStar(Vertex array[], int numberOfVertices, int src, int des, int parent[])
     // i is corresponding to the index of vertexArray since each character has been converted to int
     // and used the number as index in vertexArray (a-t ~ 0-19)
     // edges is a min heap which contains the distance
-    Edge edges[numberOfVertices];
+    Edge edges[VERTICES_ARRAY_SIZE];
     int dist[numberOfVertices];
     // sptSet[i] will be true if vertex i is includedin shortest path tree
     // or shortest distance from src to i is finalized
@@ -347,7 +343,7 @@ void AStar(Vertex array[], int numberOfVertices, int src, int des, int parent[])
         if (u.destination == des && !isDes) {
             isDes = true;
             nodeVisited++;
-        } else if (!isDes) {
+        } else if (!isDes && !sptSet[u.destination]) {
             nodeVisited++;
         }
         sptSet[u.destination] = true;
@@ -355,20 +351,21 @@ void AStar(Vertex array[], int numberOfVertices, int src, int des, int parent[])
         for (int i = 0; i < array[u.destination].numberOfEdge; i++) {
             int destination = array[u.destination].edgeArray[i].destination;
             double power = 2;
-            double startX = array[u.destination].x;
-            double startY = array[u.destination].y;
-            double desX = array[u.destination].edgeArray[i].desX;
-            double desY = array[u.destination].edgeArray[i].desY;
+            double startX = array[destination].x;
+            double startY = array[destination].y;
 
-            double euclideanDist = sqrt(pow(startX - desX, power) + pow(startY - desY, power));
+            double desX = array[des].x;
+            double desY = array[des].y;
+
+            double euclideanDist = sqrt((startX - desX)*(startX - desX) + (startY - desY)*(startY - desY));
 
             if (!sptSet[destination] && array[u.destination].edgeArray[i].weight && dist[u.destination] != INT_MAX
-                && dist[u.destination] + array[u.destination].edgeArray[i].weight + euclideanDist < dist[destination]) {
-                    dist[destination] = dist[u.destination] + array[u.destination].edgeArray[i].weight + euclideanDist;
+                && dist[u.destination] + array[u.destination].edgeArray[i].weight < dist[destination]) {
+                    dist[destination] = dist[u.destination] + array[u.destination].edgeArray[i].weight;
                     parent[destination] = u.destination;
                     ctr++;
                     edges[ctr].destination = destination;
-                    edges[ctr].weight = dist[destination];
+                    edges[ctr].weight = dist[destination] + euclideanDist;
                     siftup(edges, ctr);
             }
         }
